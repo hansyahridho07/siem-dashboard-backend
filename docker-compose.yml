@@ -1,0 +1,46 @@
+version: "3.8"
+
+services:
+  # 1. Database Relasional (RDBMS)
+  rdbms:
+    image: postgres:15-alpine
+    container_name: test-rdbms
+    environment:
+      POSTGRES_USER: backend_user
+      POSTGRES_PASSWORD: secretpassword
+      POSTGRES_DB: siem_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./docs/init-db:/docker-entrypoint-initdb.d
+    networks:
+      - siem-network
+
+  # 2. Elasticsearch (ES)
+  elasticsearch:
+    image: elasticsearch:8.8.2
+    container_name: test-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    networks:
+      - siem-network
+
+  # 3. Otomasi Inject Data Ke ES
+  es-initializer:
+    image: curlimages/curl:latest
+    container_name: test-es-initializer
+    depends_on:
+      - elasticsearch
+    volumes:
+      - ./docs/init-es:/scripts
+    entrypoint: ["sh", "/scripts/setup-es.sh"]
+    networks:
+      - siem-network
+
+networks:
+  siem-network:
+    driver: bridge

@@ -1,0 +1,426 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "SIEM Dashboard Backend API",
+    "description": "API Contract and Documentation for the Security Information and Event Management (SIEM) Dashboard Backend Service.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Local Development Server"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health Check",
+        "description": "Verify the connectivity to database services (PostgreSQL and Elasticsearch).",
+        "responses": {
+          "200": {
+            "description": "Services are healthy and accessible.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Success" },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "postgres": { "type": "string", "enum": ["up", "down"], "example": "up" },
+                        "elasticsearch": { "type": "string", "enum": ["up", "down"], "example": "up" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/alerts": {
+      "get": {
+        "summary": "Get Filtered Alert Logs",
+        "description": "Retrieve security alert logs from Elasticsearch, optionally filtered by asset department or risk level from PostgreSQL.",
+        "parameters": [
+          {
+            "name": "department",
+            "in": "query",
+            "required": false,
+            "description": "Filter alerts targeting assets owned by this department (e.g. Finance, HR).",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "risk",
+            "in": "query",
+            "required": false,
+            "description": "Filter alerts targeting assets with this risk level (e.g. High, Medium, Low).",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "Pagination page number (starts from 1).",
+            "schema": { "type": "integer", "minimum": 1, "default": 1 }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Number of records to return per page.",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved list of alerts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Successfully fetched alert logs" },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "total_data": { "type": "integer", "example": 12 },
+                        "page": { "type": "integer", "example": 1 },
+                        "limit": { "type": "integer", "example": 20 }
+                      }
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/AlertResponse" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/400BadRequest" },
+          "429": { "$ref": "#/components/responses/429TooManyRequests" }
+        }
+      }
+    },
+    "/api/alerts/top-targeted": {
+      "get": {
+        "summary": "Get Top Targeted Assets",
+        "description": "Retrieve the top 5 targeted local IP addresses based on attack frequency, enriched with asset owner information.",
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved top targeted assets list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Successfully fetched top targeted assets" },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "total_data": { "type": "integer", "example": 5 }
+                      }
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/TopTargetedAsset" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": { "$ref": "#/components/responses/429TooManyRequests" }
+        }
+      }
+    },
+    "/api/highlighted-ips": {
+      "get": {
+        "summary": "List Highlighted IPs",
+        "description": "Retrieve the list of all highlighted suspicious external IP addresses.",
+        "responses": {
+          "200": {
+            "description": "List of highlighted IPs retrieved successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Successfully retrieved highlighted IP list" },
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/HighlightedIp" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Add Highlighted IP",
+        "description": "Highlight a new suspicious external IP address.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateHighlightedIpPayload" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Highlighted IP added successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Successfully added highlighted IP" },
+                    "data": { "$ref": "#/components/schemas/HighlightedIp" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/400BadRequest" },
+          "409": { "$ref": "#/components/responses/409Conflict" },
+          "429": { "$ref": "#/components/responses/429TooManyRequests" }
+        }
+      }
+    },
+    "/api/highlighted-ips/{id}": {
+      "put": {
+        "summary": "Update Highlighted IP",
+        "description": "Update the IP address or reason of an existing highlighted IP entry.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The unique numeric ID of the highlighted IP entry.",
+            "schema": { "type": "integer" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateHighlightedIpPayload" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Highlighted IP entry updated successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Successfully updated highlighted IP" },
+                    "data": { "$ref": "#/components/schemas/HighlightedIp" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/400BadRequest" },
+          "404": { "$ref": "#/components/responses/404NotFound" },
+          "409": { "$ref": "#/components/responses/409Conflict" },
+          "429": { "$ref": "#/components/responses/429TooManyRequests" }
+        }
+      },
+      "delete": {
+        "summary": "Delete Highlighted IP",
+        "description": "Remove an IP address from the highlighted list.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The unique numeric ID of the highlighted IP entry to delete.",
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Highlighted IP entry deleted successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Successfully deleted highlighted IP" },
+                    "data": { "type": "boolean", "example": true }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/400BadRequest" },
+          "404": { "$ref": "#/components/responses/404NotFound" },
+          "429": { "$ref": "#/components/responses/429TooManyRequests" }
+        }
+      }
+    },
+    "/api/alerts/monitoring": {
+      "get": {
+        "summary": "Get Monitored Alert Logs",
+        "description": "Retrieve alert logs from Elasticsearch where the source IP matches any of the highlighted IPs stored in PostgreSQL.",
+        "responses": {
+          "200": {
+            "description": "Logs successfully retrieved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Successfully retrieved data" },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "total_data": { "type": "integer", "example": 2 }
+                      }
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/AlertResponse" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": { "$ref": "#/components/responses/429TooManyRequests" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AlertResponse": {
+        "type": "object",
+        "properties": {
+          "timestamp": { "type": "string", "format": "date-time", "example": "2026-06-01T10:01:00Z" },
+          "source_ip": { "type": "string", "format": "ipv4", "example": "185.220.101.5" },
+          "target_ip": { "type": "string", "format": "ipv4", "example": "192.168.20.50" },
+          "alert_name": { "type": "string", "example": "BROWSER-CHROME CVE-2023-3079 Exploit Attempt" },
+          "severity": { "type": "integer", "example": 1 }
+        }
+      },
+      "TopTargetedAsset": {
+        "type": "object",
+        "properties": {
+          "target_ip": { "type": "string", "format": "ipv4", "example": "192.168.10.25" },
+          "total_attacks": { "type": "integer", "example": 6 },
+          "asset_name": { "type": "string", "example": "Server Core Finance" },
+          "department": { "type": "string", "example": "Finance" }
+        }
+      },
+      "HighlightedIp": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "example": 1 },
+          "ip_address": { "type": "string", "format": "ipv4", "example": "185.220.101.5" },
+          "reason": { "type": "string", "example": "Tor exit node suspicious activity" },
+          "created_at": { "type": "string", "format": "date-time", "example": "2026-06-25T07:17:51.000Z" },
+          "updated_at": { "type": "string", "format": "date-time", "example": "2026-06-25T07:17:51.000Z" }
+        }
+      },
+      "CreateHighlightedIpPayload": {
+        "type": "object",
+        "required": ["ip_address"],
+        "properties": {
+          "ip_address": { "type": "string", "format": "ipv4", "description": "Must be a valid IPv4 or IPv6 address.", "example": "185.220.101.5" },
+          "reason": { "type": "string", "description": "Reason for highlighting the IP address.", "example": "Tor exit node suspicious activity" }
+        }
+      }
+    },
+    "responses": {
+      "400BadRequest": {
+        "description": "Invalid input schema, missing variables, or parameter format error.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "success": { "type": "boolean", "example": false },
+                "message": { "type": "string", "example": "Invalid request payload" },
+                "errors": {
+                  "type": "object",
+                  "properties": {
+                    "ip_address": {
+                      "type": "object",
+                      "properties": {
+                        "_errors": {
+                          "type": "array",
+                          "items": { "type": "string" },
+                          "example": ["Must be a valid IPv4 or IPv6 address"]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "404NotFound": {
+        "description": "The requested resource could not be found.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "success": { "type": "boolean", "example": false },
+                "message": { "type": "string", "example": "Highlighted IP with ID 99 not found" }
+              }
+            }
+          }
+        }
+      },
+      "409Conflict": {
+        "description": "The resource already exists or conflicts with another entry.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "success": { "type": "boolean", "example": false },
+                "message": { "type": "string", "example": "IP address 185.220.101.5 is already highlighted" }
+              }
+            }
+          }
+        }
+      },
+      "429TooManyRequests": {
+        "description": "Rate limit exceeded.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "success": { "type": "boolean", "example": false },
+                "message": { "type": "string", "example": "Too many requests. Please wait a moment before trying again." }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

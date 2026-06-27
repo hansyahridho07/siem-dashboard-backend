@@ -1,0 +1,35 @@
+# Ignore dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Ignore compilation outputs
+dist/
+build/
+out/
+.tscache/
+
+# Ignore Git directory and config
+.git/
+.gitignore
+
+# Ignore sensitive files and environment configs
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Ignore Docker files in the build context
+docker-compose.yml
+Dockerfile
+.dockerignore
+
+# Ignore IDE settings
+.vscode/
+.idea/
+
+# Ignore local documents and test files
+docs/
+*.md
