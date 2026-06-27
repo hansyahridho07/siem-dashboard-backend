@@ -23,14 +23,16 @@ export const AppDataSource = new DataSource({
   subscribers: [],
 });
 
+import { logger } from './logger';
+
 // Helper to initialize db
 export const initializeDatabase = async (): Promise<DataSource> => {
   if (!AppDataSource.isInitialized) {
     try {
       await AppDataSource.initialize();
-      console.log('PostgreSQL Database connected successfully via TypeORM.');
+      logger.info('PostgreSQL Database connected successfully via TypeORM.');
     } catch (error) {
-      console.error('Error during PostgreSQL Database initialization:', error);
+      logger.error({ err: error }, 'Error during PostgreSQL Database initialization');
       throw error;
     }
   }
@@ -47,7 +49,7 @@ export const checkPgConnection = async (): Promise<boolean> => {
     await AppDataSource.query('SELECT 1');
     return true;
   } catch (error) {
-    console.error('PostgreSQL Connection check failed:', error);
+    logger.error({ err: error }, 'PostgreSQL Connection check failed');
     return false;
   }
 };

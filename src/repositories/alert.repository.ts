@@ -1,5 +1,6 @@
 import { esClient } from '../config/elasticsearch';
 import { AlertEntity } from '../entities/alert.entity';
+import { logger } from '../config/logger';
 
 export class AlertRepository {
   private readonly indexName = 'security-alerts';
@@ -24,7 +25,7 @@ export class AlertRepository {
           match_all: {},
         };
 
-    console.log(`[Elasticsearch Search] index="${this.indexName}" from=${from} size=${limit} query=`, JSON.stringify(query, null, 2));
+    logger.info({ index: this.indexName, from, size: limit, query }, 'Executing Elasticsearch Search');
 
     try {
       const response = await esClient.search<AlertEntity>({
@@ -47,7 +48,7 @@ export class AlertRepository {
 
       return { total, hits };
     } catch (error) {
-      console.error('Elasticsearch search error:', error);
+      logger.error({ err: error }, 'Elasticsearch search error');
       return { total: 0, hits: [] };
     }
   }
@@ -56,14 +57,7 @@ export class AlertRepository {
    * Aggregates the top targeted IPs.
    */
   async getTopTargetedIps(size: number = 5): Promise<{ ip: string; count: number }[]> {
-    console.log(`[Elasticsearch Aggregation] index="${this.indexName}" size=0 aggs=`, JSON.stringify({
-      top_ips: {
-        terms: {
-          field: 'network_target_ip',
-          size,
-        },
-      },
-    }, null, 2));
+    logger.info({ index: this.indexName, size, field: 'network_target_ip' }, 'Executing Elasticsearch Aggregation for Top Targeted IPs');
 
     try {
       const response = await esClient.search({
@@ -89,7 +83,7 @@ export class AlertRepository {
         count: bucket.doc_count,
       }));
     } catch (error) {
-      console.error('Elasticsearch aggregation error:', error);
+      logger.error({ err: error }, 'Elasticsearch aggregation error');
       return [];
     }
   }
@@ -100,11 +94,7 @@ export class AlertRepository {
   async searchAlertsBySourceIps(srcIps: string[]): Promise<AlertEntity[]> {
     if (srcIps.length === 0) return [];
 
-    console.log(`[Elasticsearch Monitoring Search] index="${this.indexName}" size=10000 query=`, JSON.stringify({
-      terms: {
-        src_ip: srcIps,
-      },
-    }, null, 2));
+    logger.info({ index: this.indexName, srcIps }, 'Executing Elasticsearch Monitoring Search');
 
     try {
       const response = await esClient.search<AlertEntity>({
@@ -124,7 +114,7 @@ export class AlertRepository {
         .map(hit => hit._source)
         .filter((source): source is AlertEntity => !!source);
     } catch (error) {
-      console.error('Elasticsearch monitoring search error:', error);
+      logger.error({ err: error }, 'Elasticsearch monitoring search error');
       return [];
     }
   }

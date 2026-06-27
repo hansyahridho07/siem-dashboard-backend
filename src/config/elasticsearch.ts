@@ -7,13 +7,15 @@ export const esClient = new Client({
   node,
 });
 
+import { logger } from './logger';
+
 // Helper to check Elasticsearch connection
 export const checkEsConnection = async (): Promise<boolean> => {
   try {
     const health = await esClient.ping();
     return health;
   } catch (error) {
-    console.error('Elasticsearch Connection Error:', error);
+    logger.error({ err: error }, 'Elasticsearch Connection Error');
     return false;
   }
 };

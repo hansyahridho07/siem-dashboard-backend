@@ -4,11 +4,13 @@ import morgan from 'morgan';
 import fs from 'fs';
 import path from 'path';
 import swaggerUi from 'swagger-ui-express';
+import helmet from 'helmet';
 import alertRoutes from './routes/alert.routes';
 import ipRoutes from './routes/ip.routes';
 import healthRoutes from './routes/health.routes';
 import { AppError } from './errors/app.error';
 import { globalLimiter } from './middlewares/rate-limiter';
+import { logger } from './config/logger';
 
 // Load Swagger document dynamically
 const swaggerPath = path.join(__dirname, '../docs/swagger.json');
@@ -17,6 +19,7 @@ const swaggerDocument = JSON.parse(fs.readFileSync(swaggerPath, 'utf8'));
 const app: Express = express();
 
 // Middlewares
+app.use(helmet());
 app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));
@@ -50,7 +53,7 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   }
 
   // Otherwise, treat it as an unexpected system/database failure (e.g. TypeError, connection error)
-  console.error('Unexpected error occurred:', err);
+  logger.error({ err }, 'Unexpected error occurred');
 
   interface ErrorResponsePayload {
     success: boolean;

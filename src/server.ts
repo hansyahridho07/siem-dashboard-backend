@@ -5,20 +5,18 @@ import { env } from './config/env';
 
 const port = env.PORT;
 
+import { logger } from './config/logger';
+
 // Initialize database first before starting the server
 const startServer = async () => {
   try {
     await initializeDatabase();
-
+    
     app.listen(port, () => {
-      console.log(`========================================`);
-      console.log(`  SIEM Backend Service is running!      `);
-      console.log(`  Port: http://localhost:${port}          `);
-      console.log(`  Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`========================================`);
+      logger.info(`SIEM Backend Service is running on http://localhost:${port} (Env: ${process.env.NODE_ENV || 'development'})`);
     });
   } catch (error) {
-    console.error('Failed to start server due to database initialization failure:', error);
+    logger.error({ err: error }, 'Failed to start server due to database initialization failure');
     process.exit(1);
   }
 };

@@ -1,245 +1,108 @@
-# Setup and Running Guide
+# SIEM Dashboard Backend API
 
-This document describes how to setup, configure, migrate, and verify the SIEM Dashboard Backend API using TypeORM.
-
----
-
-## Prerequisites
-
-Make sure you have the following installed:
-*   [Node.js](https://nodejs.org/) (version 18+)
-*   [Docker](https://www.docker.com/) and Docker Compose
+This repository contains the backend service for the **SIEM (Security Information and Event Management) Dashboard**. It integrates internal asset data stored in **PostgreSQL** with high-volume security alert logs stored in **Elasticsearch** to provide correlated security visibility, filtering, aggregation, and suspicious IP monitoring.
 
 ---
 
-## Step 1 – Running the Docker Environment
+## 🚀 Key Features & Completed Tasks
 
-Start the PostgreSQL database and Elasticsearch instance by running:
+### Core Tasks
+1.  **Task 1 – Advanced Alert Filtering (`GET /api/alerts`):** Correlation of Elasticsearch alert logs with PostgreSQL asset data, allowing filtering by department owner and risk level with pagination.
+2.  **Task 2 – Dashboard Aggregation (`GET /api/alerts/top-targeted`):** Identifies the Top 5 most frequently targeted internal IPs from Elasticsearch, enriched in-memory with PostgreSQL asset details.
+3.  **Task 3 – Highlighted IP Monitoring:**
+    *   **Part A & B (CRUD API):** Fully functional endpoints to Add, View, Update, and Delete highlighted suspicious IPs (`/api/highlighted-ips`).
+    *   **Part C (Activity Monitoring):** Returns alert logs from Elasticsearch where the source IP matches any highlighted IP address in PostgreSQL (`/api/alerts/monitoring`).
+4.  **Task 4 – Health Check (`GET /health`):** Verifies active connectivity to both PostgreSQL and Elasticsearch databases.
 
+### Advanced Capabilities (Bonus Points)
+*   **Interactive API Documentation (Swagger UI):** Fully-featured Swagger UI documentation served live at `/docs`.
+*   **Flexible Rate Limiting:** Global rate limiting, heavy-query throttling, and write limits configured via `.env`.
+*   **Strict Env Validation:** Automatic boot-up check utilizing **Zod** that prevents server startup with incomplete configuration.
+*   **Structured Logging (Pino):** Uses Pino for structured JSON log output (with pino-pretty for development console formatting).
+*   **Helmet Security Middleware:** Enhanced API security by automatically setting HTTP protection headers.
+*   **Modular Database Seeding:** Custom seeding script supporting targeted runs (`npm run seed ips` or `npm run seed assets`).
+*   **Detailed Query Logging:** Logs all executed TypeORM SQL statements and Elasticsearch query payloads.
+*   **Docker Integration:** Ready-to-go environment with optimized configurations (`.dockerignore`, `.gitignore`).
+
+---
+
+## 🛠️ Technology Stack
+*   **Runtime:** Node.js (v18+) with TypeScript
+*   **Framework:** Express.js (with Helmet security headers)
+*   **Databases:** PostgreSQL (Relational) & Elasticsearch (Log Engine)
+*   **ORM:** TypeORM
+*   **Validation:** Zod
+*   **Logging:** Pino (with pino-pretty)
+*   **Rate Limiting:** express-rate-limit
+*   **Documentation:** Swagger UI Express & OpenAPI 3.0
+
+---
+
+## 📋 Quick Start Guide
+
+### 1. Run the Database Environment (Docker)
+Ensure Docker Desktop is running, then run:
 ```bash
 docker-compose up -d
 ```
+This starts PostgreSQL (port `5432`), Elasticsearch (port `9200`), and initializes the Elasticsearch `security-alerts` index with 24 dummy log records.
 
-Ensure Docker Desktop is running before executing this command. This command starts:
-1.  **PostgreSQL** on port `5432` with database `siem_db`
-2.  **Elasticsearch** on port `9200`
-3.  **Data Initializer** container which seeds Elasticsearch index `security-alerts` with 24 dummy records.
+### 2. Configure Environment Variables
+Copy the example environment file:
+```bash
+cp .env.example .env
+```
+*(Optionally modify ports or rate limits inside the `.env` file).*
 
----
-
-## Step 2 – Installing Backend Dependencies
-
-Install the Node.js packages by running:
-
+### 3. Install Dependencies
 ```bash
 npm install
 ```
 
----
-
-## Step 3 – Database Migrations (TypeORM)
-
-We use TypeORM CLI migrations to manage database schemas. Auto-migration (`synchronize`) is disabled during dev server startups for safety.
-
-To apply migrations and create the `highlighted_ips` table, run:
-
+### 4. Run Migrations & Database Seeding
+Create the database tables and seed them with test data:
 ```bash
+# Run migrations (creates highlighted_ips table)
 npm run migration:run
+
+# Seed the database (optional - seeds assets & highlighted IPs)
+npm run seed
 ```
 
-### Optional – Database Seeding
-
-You can populate PostgreSQL with initial mock data using the seed command:
-
-*   **Seed all tables (Assets & Highlighted IPs):**
-    ```bash
-    npm run seed
-    ```
-*   **Seed only Highlighted IPs:**
-    ```bash
-    npm run seed ips
-    ```
-*   **Seed only Assets:**
-    ```bash
-    npm run seed assets
-    ```
-
-### Additional Migration Commands (CLI)
-
-*   **Generate a new migration schema (when entities change):**
-    ```bash
-    npm run migration:generate -- src/database/migrations/<MigrationName>
-    ```
-*   **Revert the last executed migration:**
-    ```bash
-    npm run migration:revert
-    ```
-
----
-
-## Step 4 – Running the Server
-
-Start the backend server in development mode (runs with auto-reload via `ts-node-dev` on port `3000`):
-
+### 5. Start the Server
 ```bash
+# Start in development mode (with hot-reload)
 npm run dev
 ```
 
-The console should display:
-```text
-PostgreSQL Database connected successfully via TypeORM.
-========================================
-  SIEM Backend Service is running!      
-  Port: http://localhost:3000          
-  Environment: development
-========================================
-```
+The server will start at [http://localhost:3000](http://localhost:3000).
 
-To run in production mode:
-```bash
-npm run build
-npm start
-```
+*   **API Documentation UI:** Go to [http://localhost:3000/docs](http://localhost:3000/docs) in your browser.
+*   **Detailed Setup & Verification:** Refer to [SETUP.md](./SETUP.md) for curl test commands, CRUD routes, and manual API verifications.
 
 ---
 
-## Step 5 – Manual API Verification
+## 🧠 Assumptions, Trade-offs, Limitations, & Future Improvements
 
-You can verify the endpoints using `curl` or any API client (e.g. Postman, Insomnia).
+### 1. Assumptions
+*   **Asset Count is Manageable:** We assume the number of assets stored in PostgreSQL is relatively small (e.g., hundreds or thousands of devices) compared to the volume of security alert logs in Elasticsearch (millions of records). Therefore, fetching and holding asset IPs in memory during query filtration is highly performant.
+*   **Elasticsearch Index Performance:** We assume that Elasticsearch fields `src_ip` and `network_target_ip` are mapped correctly as type `ip`, which allows rapid range and term queries.
+*   **Synchronous State for Dev Environment:** We assume that running migrations (`migration:run`) is done before starting the backend in both Docker-compose environments and local node contexts.
 
-### 1. Health Check (Task 4)
-Verify connectivity to both PostgreSQL and Elasticsearch:
-```bash
-curl http://localhost:3000/health
-```
-**Expected Response:**
-```json
-{
-  "status": "healthy",
-  "services": {
-    "postgres": "up",
-    "elasticsearch": "up"
-  }
-}
-```
+### 2. Architectural Trade-offs
+*   **In-Memory Enrichment vs. Database Join:** Since Elasticsearch and PostgreSQL are separate datastores, we cannot join them via SQL. We retrieve aggregated top-targeted IPs from Elasticsearch first, query PostgreSQL once for these specific IPs using SQL `IN`, and merge the data using a JavaScript `Map` ($O(1)$ lookup complexity). This avoids N+1 queries.
+*   **Strict Zod Schema Validation over Controllers:** We chose to enforce strict input validation directly at the controller entry point. If a client passes parameter values that do not strictly comply with our specifications (such as a malformed IP address), the request is rejected immediately. This increases API robustness but requires clients to strictly conform to the schemas.
 
-### 2. Advanced Alert Filtering (Task 1)
-Retrieve alert logs filtered by department owner (e.g. `Finance`) and paginated:
-```bash
-curl "http://localhost:3000/api/alerts?department=Finance&page=1&limit=5"
-```
-**Expected Response:**
-```json
-{
-  "success": true,
-  "message": "Successfully fetched alert logs",
-  "meta": {
-    "total_data": 12,
-    "page": 1,
-    "limit": 5
-  },
-  "data": [ ... ]
-}
-```
+### 3. Limitations
+*   **No Real-time Sync:** Changes to company assets in PostgreSQL are not automatically synced with Elasticsearch. While this backend queries databases dynamically, any changes in Elasticsearch structure require manual indices update.
+*   **Memory Overhead on Large Asset Lists:** If the postgres assets table grows to hundreds of thousands of entries, fetching all asset IPs to query Elasticsearch might hit payload limitations or consume substantial Node.js memory.
 
-### 3. Dashboard Aggregation & Enrichment (Task 2)
-Retrieve Top 5 targeted internal IPs enriched with asset data:
-```bash
-curl http://localhost:3000/api/alerts/top-targeted
-```
-
-### 4. Highlighted IP CRUD (Task 3 – Part B)
-
-*   **Add Highlighted IP:**
-    ```bash
-    curl -X POST http://localhost:3000/api/highlighted-ips \
-      -H "Content-Type: application/json" \
-      -d '{"ip_address": "185.220.101.5", "reason": "Tor exit node suspicious activity"}'
-    ```
-
-*   **View Highlighted IP list:**
-    ```bash
-    curl http://localhost:3000/api/highlighted-ips
-    ```
-
-*   **Update Highlighted IP:**
-    Replace `:id` with the ID returned when creating the IP (e.g. `1`):
-    ```bash
-    curl -X PUT http://localhost:3000/api/highlighted-ips/1 \
-      -H "Content-Type: application/json" \
-      -d '{"ip_address": "185.220.101.5", "reason": "Confirmed scanner brute forcing SSH"}'
-    ```
-
-*   **Delete Highlighted IP:**
-    ```bash
-    curl -X DELETE http://localhost:3000/api/highlighted-ips/1
-    ```
-
-### 5. Highlighted IP Activity Monitoring (Task 3 – Part C)
-Get alert logs where the source IP matches any highlighted IP address:
-```bash
-curl http://localhost:3000/api/alerts/monitoring
-```
+### 4. Future Improvements
+*   **Caching Layer (Redis):** Implement a caching layer for PostgreSQL asset lookup. Since asset configurations change infrequently, caching these records will eliminate database round-trips for every search filter query.
+*   **Database Indexes:** Add a database index on the `host_identifier_local` column in the `internal_infrastructure_assets` table to optimize SQL lookup times.
+*   **Elasticsearch Alias & Reindexing:** Setup index aliases and templates in Elasticsearch to easily rotate indices (e.g., weekly or monthly indices) as log records grow into the hundreds of millions.
 
 ---
 
-## Additional Systems & Customizations
-
-### 1. Environment Variable Validation
-The application uses strict schema validation via **Zod** at startup to verify all required `.env` values. 
-* If any environment variables are missing or have incorrect types (e.g. invalid Elasticsearch URL), the system will **print a detailed error report** and **force-close/exit the application immediately** (including killing watcher processes like `ts-node-dev`).
-* See `.env.example` for all configurable environment variables.
-
-### 2. Rate Limiting System
-To protect APIs from abuse and overload, the server implements IP-based rate limiting via `express-rate-limit`:
-1.  **Global Rate Limiter:** Applied across all endpoints. Defaults to a maximum of **100 requests per 1 minute**.
-2.  **Heavy Query Limiter:** Applied to heavy aggregation and search APIs (Task 1 & 2). Defaults to **30 requests per 1 minute**.
-3.  **Write Operations Limiter:** Applied to database CRUD endpoints (Task 3). Defaults to **15 requests per 1 minute**.
-
-#### Customization via `.env`
-You can customize the window and request threshold thresholds by setting these variables:
-```env
-# Disable rate limits entirely (useful for Dev/Stress Testing)
-DISABLE_RATE_LIMIT=false
-
-# Global Limits
-RATE_LIMIT_GLOBAL_WINDOW_MS=60000
-RATE_LIMIT_GLOBAL_MAX=100
-
-# Heavy Search/Agg Limits
-RATE_LIMIT_HEAVY_WINDOW_MS=60000
-RATE_LIMIT_HEAVY_MAX=30
-
-# Write CRUD Limits
-RATE_LIMIT_WRITE_WINDOW_MS=60000
-RATE_LIMIT_WRITE_MAX=15
-```
-
-### 3. Stress & Performance Testing
-To execute load tests against the API endpoints:
-
-1.  Disable the rate limits in `.env`:
-    ```env
-    DISABLE_RATE_LIMIT=true
-    ```
-2.  Run the backend server:
-    ```bash
-    npm run dev
-    ```
-3.  Execute performance testing using `autocannon` (Node.js benchmarking tool):
-    ```bash
-    # Test Health Check endpoint (100 concurrent connections, 10s duration)
-    npx autocannon -c 100 -d 10 http://localhost:3000/health
-    
-    # Test Alert Filtering search endpoint
-    npx autocannon -c 100 -d 10 "http://localhost:3000/api/alerts?department=Finance&page=1&limit=5"
-    ```
-
-### 4. Interactive API Documentation (Swagger UI)
-The API Contract is published as an interactive Swagger UI:
-*   **Documentation URL:** [http://localhost:3000/docs](http://localhost:3000/docs)
-*   **Definition File:** [docs/swagger.json](file:///c:/Users/ASUS/Downloads/Technical%20Test%20Backend/docs/swagger.json)
-
-Once the backend service is running, navigate to the Documentation URL in your web browser to test and view all endpoint request bodies, query parameters, rate limit headers, and expected response payloads.
-
-
+## 📂 Project Structure Map
+Refer to [STRUCTURE.md](./STRUCTURE.md) for a detailed mapping of files, roles, and structural layout of the codebase.
